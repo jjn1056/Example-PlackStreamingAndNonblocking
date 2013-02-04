@@ -351,8 +351,14 @@ using the delayed response and the streaming interface:
       };
     };
 
-Now so far you could do this procedurally.  You could have re-written the slow
-application:
+As written this again is not really buying you anything, although if the body
+of the response was large you could use this as a way to serve 'chunks' of it
+which might reduce the memory footprint of the application.  We'll talk more
+about streaming in a bit, but the key here is that the application is still a
+blocking appliction, even though it is using the delayed and even streaming
+response approach.  If you want non-blocking, you have to take this a step
+further and involve an eventloop framework like L<AnyEvent>.  Lets see what
+that would look like
 
     use strictures;
 
