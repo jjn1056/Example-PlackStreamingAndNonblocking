@@ -1,49 +1,39 @@
-package Example::PlackStreamingAndNonblocking;
-
-use Pod::Markdown;
-use strictures;
-
-(caller() ? 1 : do {
-  (my $parser = Pod::Markdown->new)
-    ->parse_from_file(__FILE__);
-  print $parser->as_markdown });
-
-=head1 NAME
+# NAME
 
 Example::PlackStreamingAndNonblocking - About Plack / PSGI Streaming and nonblocking
 
-=head1 DESCRIPTION
+# DESCRIPTION
 
-This article reviews the hows and whys of L<Plack> streaming and nonblocking
+This article reviews the hows and whys of [Plack](http://search.cpan.org/perldoc?Plack) streaming and nonblocking
 for the perspective of someone who is very unfamiliar with the topic, but has
-experience with Perl and understands the basics of L<Plack>.  It takes the form
+experience with Perl and understands the basics of [Plack](http://search.cpan.org/perldoc?Plack).  It takes the form
 of a tutorial starting from a basic Plack application, and introduces both non
-blocking and streaming concept using L<AnyEvent>.
+blocking and streaming concept using [AnyEvent](http://search.cpan.org/perldoc?AnyEvent).
 
 The goals of these examples is to help the reader understand the problems we are
 trying to solve using streaming and / or non blocking coding techniques, more 
 then to give example cookbook style code.  As a result some of the examples
 will be somewhat contrived for the purposes of eludication.
 
-It would be helpful to have read the L<PSGI> specification, although you are not
+It would be helpful to have read the [PSGI](http://search.cpan.org/perldoc?PSGI) specification, although you are not
 expected to fully grasp all of it.  Some familiarity with the documentation
-and tutorial of L<AnyEvent> would also assist you.
+and tutorial of [AnyEvent](http://search.cpan.org/perldoc?AnyEvent) would also assist you.
 
-=head1 INTRODUCTION
+# INTRODUCTION
 
 Unless you are a Perl programmer who is very isolated from the broad trends of
-community, you will have heard of L<PSGI> and its reference implementation,
-L<Plack>, which has rapidly become a key element of best practices in building web
-applications.  In summary, L<Plack> is 'superglue' which connects your web
+community, you will have heard of [PSGI](http://search.cpan.org/perldoc?PSGI) and its reference implementation,
+[Plack](http://search.cpan.org/perldoc?Plack), which has rapidly become a key element of best practices in building web
+applications.  In summary, [Plack](http://search.cpan.org/perldoc?Plack) is 'superglue' which connects your web
 application to an underlying server (thus making it available to consumers on
 the internet or your local network.  In addition to this standard approach of
 making your application 'internet ready', it provides an interface in which
 shared middleware components can be used and reused across your applications
 irrespective of what web development framework you are using.
 
-Some parts of the L<PSGI> specification are easy to understand and can be
+Some parts of the [PSGI](http://search.cpan.org/perldoc?PSGI) specification are easy to understand and can be
 rapidly used by even newcomers to the language. One can write a well formed
-Perl / Plack application in a few lines of code (C<scripts/trivial_01.psgi>);
+Perl / Plack application in a few lines of code (`scripts/trivial_01.psgi`);
 
     use strictures;
 
@@ -78,13 +68,13 @@ with it from even a simple telnet prompt.
     Connection closed by foreign host.
     $ 
 
-You can see a screen video capture of this very procedure in the C<share/videos/>
+You can see a screen video capture of this very procedure in the `share/videos/`
 directory of this distribution.  Each code example will have a corresponding
 example in this directory.
 
-So, as I said, that part is easy, and it a key reason for L<PSGI> and L<Plack>
+So, as I said, that part is easy, and it a key reason for [PSGI](http://search.cpan.org/perldoc?PSGI) and [Plack](http://search.cpan.org/perldoc?Plack)
 to have so seriously impacted Perl web application development.  However, there
-are two interrelated parts of the L<PSGI> specification which are not always
+are two interrelated parts of the [PSGI](http://search.cpan.org/perldoc?PSGI) specification which are not always
 as readily accessible to understanding.  That is Streaming and Non-blocking.
 Documentation shows how the specification works, but it leaves out some
 information about the point of using it, and when to use it over other possible
@@ -92,9 +82,9 @@ approaches.  This article will review Streaming and nonblocking code both
 separately and interrelated, as well as try to help you understand when and why
 you'd adopt this approach to building you application.
 
-=head1 The Classic Approach to Web Scale
+# The Classic Approach to Web Scale
 
-Before we can understand why we'd use L<PSGI> streaming and / or non blocking
+Before we can understand why we'd use [PSGI](http://search.cpan.org/perldoc?PSGI) streaming and / or non blocking
 approaches in our web applications, we need to step back and understand how web
 technologies first evolved and how those technologies tried to meet ever growing
 needs for scale and complexity.  Because in the end it doesn't matter how an
@@ -120,7 +110,7 @@ child processes each ready and waiting to response to an incoming request.  Let'
 furthermore say that your response is well optimized, and only takes one tenth
 of a second to complete.  That means in theory you could served a maximum of
 100 requests per second (each process could serve 10 reponses in a second and
-you have 10 processed running, 10*10=100).
+you have 10 processed running, 10\*10=100).
 
 In real life you are very likely to do worse, since you may have a very slow
 client requesting a file (say someone on a 14.4K modem), or other network
@@ -129,7 +119,7 @@ end caching proxies, and you can straightforwardly scale by adding more web
 servers with load balancing systems to give the appearance of one big server,
 but in the end you are ultimately going to have a fixed number of possible
 simultaneous responses.  That is because in this model the request - response
-B<blocks> the system, such that until it is finished that process is totally
+__blocks__ the system, such that until it is finished that process is totally
 tied up and not available to any other request.
 
 Futhermore, modern web applications are being write that now require perhaps
@@ -143,7 +133,7 @@ Lets build a simple plack application that shows the experience when lots
 of people try to access a forking server all at once.  Lets furthermore
 say that the server is doing some 'heavy lifting' and that the process
 takes 5 seconds of work before it actually can response.  Here's the code
-and you can see  it in C<scripts/slow_blocking_01.psgi>.
+and you can see  it in `scripts/slow_blocking_01.psgi`.
 
     use strictures;
 
@@ -153,17 +143,17 @@ and you can see  it in C<scripts/slow_blocking_01.psgi>.
       ["Hello World!\n"]];
     };
 
-So, here I do C<sleep 5> to cause a five second delay before responding.  This
+So, here I do `sleep 5` to cause a five second delay before responding.  This
 is contrived but certainly possible if you have an application that does a lot
 of database checks and processing before responding.  Lets run this application
-under C<Starman> which is a preforking server (it by default preforks 5 times
+under `Starman` which is a preforking server (it by default preforks 5 times
 and thus can serve 5 requests at a time).  We will use Apache ab to access the
 server 100 times with a concurrency of 100 (in other words one hundred total
 requests to the server, and one hundred clients trying to hit the server at once.
 
 Can you guess how long this test will take to complete?
 
-As before, see C<share/videos> for screencast.
+As before, see `share/videos` for screencast.
 
 (In terminal one)
 
@@ -180,6 +170,7 @@ As before, see C<share/videos> for screencast.
     This is ApacheBench, Version 2.3 <$Revision: 1178079 $>
     Benchmarking 127.0.0.1 (be patient).....done
         
+
     Server Hostname:        127.0.0.1
     Server Port:            5000
 
@@ -198,14 +189,14 @@ As before, see C<share/videos> for screencast.
     Time per request:       1000.621 [ms] (mean, across all concurrent requests)
     Transfer rate:          0.11 [Kbytes/sec] received
 
-If you watch the video (or run it yourself) you can see the L<Starman> running
+If you watch the video (or run it yourself) you can see the [Starman](http://search.cpan.org/perldoc?Starman) running
 application serve 5 requests, block for a few seconds, serve 5 more, etc.
 until you serve the last bunch.  In the end the whole things takes about 100
 seconds (think 5 seconds and you handle 5 at a time, so thats 20 bunches = 100
 seconds give or take a bit of overhead).
 
 Ok, so again, that example was a bit contrived, and yes there are many many
-things you can do when using a pre-forking server like L<Starman> or Apache
+things you can do when using a pre-forking server like [Starman](http://search.cpan.org/perldoc?Starman) or Apache
 to help scale.  You can more static assets to stand alone servers or onto a
 CDN network like Akamai, you can move computational expensive server jobs to
 stand alone job queues, you can use front edge caching to speed up the bits
@@ -221,7 +212,7 @@ expensive equipment just sitting around during those low usage times.
 
 So, what to do?
 
-=head1 Nonblocking with AnyEvent
+# Nonblocking with AnyEvent
 
 The root issue in the classic approach to web scale lies in how each of the
 forked processes block until the entire request response cycle is completed.
@@ -238,11 +229,11 @@ requests per second, but no more than 10 at one time.
 
 So if issue is blocking, what to do?
 
-Perl offers several approaches to building non-blocking applications, and L<Plack>
-supports this.  We will use L<AnyEvent> since that system is well supported and
+Perl offers several approaches to building non-blocking applications, and [Plack](http://search.cpan.org/perldoc?Plack)
+supports this.  We will use [AnyEvent](http://search.cpan.org/perldoc?AnyEvent) since that system is well supported and
 there is documentation around to help out.
 
-L<AnyEvent> is a sort of common API on top of many possible event loops, which
+[AnyEvent](http://search.cpan.org/perldoc?AnyEvent) is a sort of common API on top of many possible event loops, which
 makes it easy to get started.  The idea behind the event loop is that you build
 an application that responds to events, but the actual response processing does
 not need to block the rest of the application.  It does this by using a feature
@@ -261,19 +252,22 @@ wait nearly 100 seconds before even having their request acknowledged (and my
 server was 99.9% idle).
 
 Let's translate the previous example of a slow application. You can see the
-code as well in C<scripts/long_job_anyevent.psgi>.  I'll start with the end
+code as well in `scripts/long_job_anyevent.psgi`.  I'll start with the end
 goal and then we will back up and follow the thinking that got us there.
 
     use AnyEvent;
     use strictures;
       
+
     my $app = sub {
       my $env = shift;
      
+
       return sub {
         my $writer = (my $responder = shift)->(
           [ 200, [ 'Content-Type', 'text/plain' ]]);
      
+
         $writer->write("Starting: ${\scalar(localtime)}\n");
 
         my $cb = sub {
@@ -282,6 +276,7 @@ goal and then we will back up and follow the thinking that got us there.
           $writer->close;
         };
      
+
        my $watcher;
        $watcher = AnyEvent->timer(
         after => 5,
@@ -296,7 +291,7 @@ goal and then we will back up and follow the thinking that got us there.
 Now, I've added a few extra bits of output so as to make it easier to see what
 is going on, but overall there's quite a bit more complexity here.  Let's try
 to break it down a bit.  In the introduction we used the most simple form of a
-L<PSGI> appliction, which as you recalled looked like this:
+[PSGI](http://search.cpan.org/perldoc?PSGI) appliction, which as you recalled looked like this:
 
     use strictures;
 
@@ -314,7 +309,7 @@ handle) which is the actual body content of the response.
 However, if the server supports it, you can instead of the three item Tuple
 return a second subroutine, which is a delayed response that the server executes
 when it is ready.  The idea here is to defer processing of the request / response.
-So you could rewrite this application as follows (c<scripts/trivial_02.psgi>).
+So you could rewrite this application as follows (c<scripts/trivial\_02.psgi>).
 
     use strictures;
 
@@ -334,17 +329,17 @@ doing this, you can start to decouple the response from the actual generation
 of the response.  This is a good first step and a useful technique, but it is
 not yet enough to achieve a full non blocking response.
 
-The key to the non blocking example (C<scripts/long_job_anyevent.psgi>) is to
-notice that when calling the C<$responder> coderef, we are passing only part of
+The key to the non blocking example (`scripts/long_job_anyevent.psgi`) is to
+notice that when calling the `$responder` coderef, we are passing only part of
 the response, the HTTP status codes and the HTTP Header meta data pairs.  When
-C<$responder is called like this, you get a C<$writer> object that you can use
-to send the HTTP body response.  You do so by calling the ->write method on it.
+`$responder is called like this, you get a `$writer` object that you can use
+to send the HTTP body response.  You do so by calling the -`write method on it.
 You can repeatedly call ->write until you are finished, at which point you need
 to signal the server that you are done by calling ->close.  So Here's a sort of
 ultimate version of the trivial application using the delayed response and the
 streaming interface together.  Lets look at it and then see what it looks like
 when we run it under a server that supports the non blocking interface (like
-C<Twiggy>).
+`Twiggy`).
 
     use strictures;
 
@@ -364,7 +359,7 @@ which might reduce the memory footprint of the application.  We'll talk more
 about streaming in a bit, but the key here is that the application is still a
 blocking application, even though it is using the delayed and even streaming
 response approach.  If you want non-blocking, you have to take this a step
-further and involve an eventloop framework like L<AnyEvent>.  Lets see what
+further and involve an eventloop framework like [AnyEvent](http://search.cpan.org/perldoc?AnyEvent).  Lets see what
 that would look like
 
     use strictures;
@@ -376,6 +371,7 @@ that would look like
     };
 
 As follows
+
 
 
     use strictures;
@@ -390,9 +386,11 @@ As follows
 
 
 
--high concurrany
--very dynamic or realtime data (not suitable for caching)
--each client needs lots of connections
+
+
+\-high concurrany
+\-very dynamic or realtime data (not suitable for caching)
+\-each client needs lots of connections
 
 is not a panacea
 can play nice with other 'classic' scale techniques, job queues, caching,
@@ -400,23 +398,21 @@ even proxies to help deal with slow clients
 
 
 
-=head1 SEE ALSO
+
+
+# SEE ALSO
 
 The following modules or resources may be of interest.
 
-L<Plack>, L<AnyEvent>, L<strictures>
+[Plack](http://search.cpan.org/perldoc?Plack), [AnyEvent](http://search.cpan.org/perldoc?AnyEvent), [strictures](http://search.cpan.org/perldoc?strictures)
 
-=head1 AUTHOR
+# AUTHOR
 
     John Napiorkowski C<< <jjnapiork@cpan.org> >>
 
-=head1 COPYRIGHT & LICENSE
+# COPYRIGHT & LICENSE
 
     Copyright 2013, John Napiorkowski C<< <jjnapiork@cpan.org> >>
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
-
-=cut
-
-
