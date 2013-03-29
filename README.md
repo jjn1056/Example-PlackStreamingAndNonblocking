@@ -113,7 +113,7 @@ of a second to complete.  That means in theory you could served a maximum of
 you have 10 processed running, 10\*10=100).
 
 In real life you are very likely to do worse, since you may have a very slow
-client requesting a file (say someone on a 14.4K modem), or other network
+client requesting a file (say someone on a gprs mobile connection), or other network
 congestion issues.  To some degree you can mitigate the problem using front
 end caching proxies, and you can straightforwardly scale by adding more web
 servers with load balancing systems to give the appearance of one big server,
